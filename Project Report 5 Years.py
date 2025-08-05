@@ -1,6 +1,7 @@
 import streamlit as st
 from openpyxl import load_workbook
 from io import BytesIO
+import yagmail
 
 st.set_page_config(page_title="Project Report Generator", layout="wide")
 st.title("📊 Automated Project Report Generator")
@@ -55,10 +56,17 @@ if st.button("Generate Project Report"):
     wb.save(output)
     output.seek(0)
 
-    st.success("✅ Project report is ready.")
-    st.download_button(
-        label="📥 Download Filled Project Report",
-        data=output,
-        file_name="Project Report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    # Send email with attachment
+    try:
+        st.info("📧 Sending report to Lavish Gupta...")
+        yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="YOUR_APP_PASSWORD")  # Replace with your app password
+        yag.send(
+            to="calavishgupta25@gmail.com",
+            subject="New Project Report Submission",
+            contents="Attached is the new project report submitted via Streamlit app.",
+            attachments={"Project Report.xlsx": output.getvalue()}
+        )
+        st.success("✅ Report generated and emailed successfully.")
+    except Exception as e:
+        st.error(f"❌ Failed to send email: {e}")
+
