@@ -34,7 +34,7 @@ cci_decimal = cc_interest / 100
 
 # --- BUTTON TO GENERATE REPORT ---
 if st.button("Generate Project Report"):
-    template_path = r"C:\\Users\\lavis\\OneDrive\\Desktop\\New folder\\Project Report Format.xlsx"
+    template_path = "Project Report Format.xlsx"  # Relative path for GitHub/Streamlit Cloud
     wb = load_workbook(template_path)
 
     if "Basic Details" in wb.sheetnames:
