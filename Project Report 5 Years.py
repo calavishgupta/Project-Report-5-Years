@@ -2,6 +2,7 @@ import streamlit as st
 from openpyxl import load_workbook
 from io import BytesIO
 import yagmail
+import tempfile
 
 st.set_page_config(page_title="Project Report Generator", layout="wide")
 st.title("📊 Automated Project Report Generator")
@@ -52,9 +53,10 @@ if st.button("Generate Project Report"):
         sheet["C13"] = tli_decimal
         sheet["C14"] = cci_decimal
 
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
+    # Save workbook to temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+        wb.save(tmp.name)
+        tmp_path = tmp.name
 
     # Send email with attachment
     try:
@@ -64,7 +66,7 @@ if st.button("Generate Project Report"):
             to="calavishgupta25@gmail.com",
             subject="New Project Report Submission",
             contents="Attached is the new project report submitted via Streamlit app.",
-            attachments={"Project Report.xlsx": output.getvalue()}
+            attachments=tmp_path
         )
         st.success("✅ Report generated and emailed successfully.")
     except Exception as e:
