@@ -59,7 +59,7 @@ if st.button("Generate Project Report"):
     # Send email with attachment
     try:
         st.info("📧 Sending report to Lavish Gupta...")
-        yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="YOUR_APP_PASSWORD")  # Replace with your app password
+        yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="geli tejz dxiq vtyo")
         yag.send(
             to="calavishgupta25@gmail.com",
             subject="New Project Report Submission",
@@ -69,4 +69,3 @@ if st.button("Generate Project Report"):
         st.success("✅ Report generated and emailed successfully.")
     except Exception as e:
         st.error(f"❌ Failed to send email: {e}")
-
