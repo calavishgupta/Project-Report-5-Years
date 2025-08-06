@@ -1,3 +1,5 @@
+st.session_state.clear()
+
 import streamlit as st
 from login import login
 from admin_dashboard import admin_dashboard
