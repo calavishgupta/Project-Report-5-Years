@@ -1,6 +1,5 @@
 import streamlit as st
 from openpyxl import load_workbook
-from io import BytesIO
 import yagmail
 import tempfile
 
@@ -27,49 +26,70 @@ subsidy_percent = st.number_input("Subsidy Percentage", min_value=0.0, max_value
 term_loan_interest = st.number_input("Term Loan Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
 cc_interest = st.number_input("CC Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
 
-# Convert percentages to decimals for Excel
+# Convert to decimal
 margin_decimal = margin_percent / 100
 subsidy_decimal = subsidy_percent / 100
 tli_decimal = term_loan_interest / 100
 cci_decimal = cc_interest / 100
 
-# --- ITEM ENTRY SECTION ---
-st.header("Step 3: List of Items (Max 11 Items)")
+# --- P&M ENTRY SECTION ---
+st.header("Step 3: Plant & Machinery")
+
+if 'item_count' not in st.session_state:
+    st.session_state.item_count = 1
+
+def add_item():
+    if st.session_state.item_count < 11:
+        st.session_state.item_count += 1
 
 item_data = []
-for i in range(11):
-    st.subheader(f"Item {i + 1}")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        item_name = st.text_input(f"Item Name {i + 1}", key=f"name_{i}")
-    with col2:
-        qty = st.number_input(f"Quantity {i + 1}", min_value=0.0, step=1.0, key=f"qty_{i}")
-    with col3:
-        rate = st.number_input(f"Rate {i + 1}", min_value=0.0, step=0.1, key=f"rate_{i}")
+total_pm_value = 0
+
+for i in range(st.session_state.item_count):
+    st.markdown(f"**Item {i+1}**")
+    cols = st.columns(3)
+    with cols[0]:
+        item_name = st.text_input(f"Item Name {i+1}", key=f"name_{i}").upper()
+    with cols[1]:
+        qty = st.number_input(f"Qty {i+1}", min_value=0.0, step=1.0, key=f"qty_{i}")
+    with cols[2]:
+        rate = st.number_input(f"Rate {i+1}", min_value=0.0, step=0.1, key=f"rate_{i}")
     
     if item_name:
+        total = qty * rate
+        total_pm_value += total
         item_data.append({
             "serial": i + 1,
-            "name": item_name.upper(),
+            "name": item_name,
             "qty": qty,
             "rate": rate
         })
 
-# --- ASSET VALUES SECTION ---
-st.header("Step 4: Asset Details")
-furniture_value = st.number_input("Furniture & Fixture Value (to go in F37)", min_value=0.0, step=100.0)
-electrical_value = st.number_input("Electrical Equipments Value (to go in F40)", min_value=0.0, step=100.0)
+if st.session_state.item_count < 11:
+    st.button("➕ Add More Items", on_click=add_item)
 
-# --- BUTTON TO GENERATE REPORT ---
-if st.button("Generate Project Report"):
+# --- ASSET VALUES SECTION ---
+st.header("Step 4: Other Fixed Assets")
+furniture_value = st.number_input("Furniture & Fixture Value (₹)", min_value=0.0, step=100.0)
+electrical_value = st.number_input("Electrical Equipments Value (₹)", min_value=0.0, step=100.0)
+
+# --- TOTALS ---
+st.header("💰 Summary")
+grand_total = total_pm_value + furniture_value + electrical_value
+st.write(f"**Total Plant & Machinery Value:** ₹{total_pm_value:,.2f}")
+st.write(f"**Total Furniture & Fixture Value:** ₹{furniture_value:,.2f}")
+st.write(f"**Total Electrical Equipments Value:** ₹{electrical_value:,.2f}")
+st.subheader(f"**➡️ Grand Total: ₹{grand_total:,.2f}**")
+
+# --- GENERATE & EMAIL REPORT ---
+if st.button("📤 Generate & Email Project Report"):
     try:
-        template_path = "Project Report Format.xlsx"  # Relative path to your template
+        template_path = "Project Report Format.xlsx"
         wb = load_workbook(template_path)
 
         if "Basic Details" in wb.sheetnames:
             sheet = wb["Basic Details"]
-
-            # Basic info
+            # Basic Details
             sheet["C3"] = firm_name
             sheet["C4"] = firm_address
             sheet["C5"] = nature_of_business
@@ -83,25 +103,27 @@ if st.button("Generate Project Report"):
             sheet["C13"] = tli_decimal
             sheet["C14"] = cci_decimal
 
-            # Insert item list
-            start_row = 19
+            # P&M entries
             for idx, item in enumerate(item_data):
-                row = start_row + idx
+                row = 19 + idx
                 sheet[f"B{row}"] = item["serial"]
                 sheet[f"C{row}"] = item["name"]
                 sheet[f"D{row}"] = item["qty"]
                 sheet[f"E{row}"] = item["rate"]
 
-            # Insert asset values
+            # Assets
             sheet["F37"] = furniture_value
             sheet["F40"] = electrical_value
 
-        # Save workbook to a temp file
+            # 🔒 Hide the sheet before saving
+            sheet.sheet_state = "hidden"
+
+        # Save file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             wb.save(tmp.name)
             tmp_path = tmp.name
 
-        # Send email with attachment
+        # Email
         st.info("📧 Sending report to Lavish Gupta...")
         yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="geli tejz dxiq vtyo")
         yag.send(
