@@ -15,12 +15,12 @@ def show_report_form(user_role="guest"):
     firm_name = st.text_input("Firm Name").upper()
     firm_address = st.text_input("Firm Address").upper()
     nature_of_business = st.text_input("Nature of Business").upper()
-
     proprietor_name = st.text_input("Proprietor Name").upper()
     proprietor_address = st.text_input("Proprietor Address").upper()
 
     gender = st.selectbox("Gender", ["Male", "Female", "Prefer not to say"])
     location = st.selectbox("Location of Unit", ["Urban", "Rural"])
+    category = st.selectbox("Category", ["SC", "ST", "OBC", "General", "Others"])
 
     building_status = st.selectbox("Building Rented/Owned", ["RENTED", "OWNED"])
     area_sqft = st.number_input("Area in sq. ft", min_value=0.0, step=1.0)
@@ -34,38 +34,34 @@ def show_report_form(user_role="guest"):
 
     st.header("🏭 Plant & Machinery")
 
-    if 'item_count' not in st.session_state:
-        st.session_state.item_count = 1
+    if "pm_items" not in st.session_state:
+        st.session_state.pm_items = []
 
-    def add_item():
-        if st.session_state.item_count < 11:
-            st.session_state.item_count += 1
-
-    item_data = []
+    # Display existing items
     total_pm_value = 0
+    updated_items = []
 
-    for i in range(st.session_state.item_count):
-        st.markdown(f"**Item {i+1}**")
-        cols = st.columns(3)
+    for i, item in enumerate(st.session_state.pm_items):
+        cols = st.columns([3, 2, 2, 1])
         with cols[0]:
-            item_name = st.text_input(f"Item Name {i+1}", key=f"name_{i}").upper()
+            name = st.text_input(f"Item {i+1} Name", value=item["name"], key=f"name_{i}").upper()
         with cols[1]:
-            qty = st.number_input(f"Qty {i+1}", min_value=0.0, step=1.0, key=f"qty_{i}")
+            qty = st.number_input(f"Qty {i+1}", value=item["qty"], min_value=0.0, step=1.0, key=f"qty_{i}")
         with cols[2]:
-            rate = st.number_input(f"Rate {i+1}", min_value=0.0, step=0.1, key=f"rate_{i}")
-        
-        if item_name:
-            total = qty * rate
-            total_pm_value += total
-            item_data.append({
-                "serial": i + 1,
-                "name": item_name,
-                "qty": qty,
-                "rate": rate
-            })
+            rate = st.number_input(f"Rate {i+1}", value=item["rate"], min_value=0.0, step=0.1, key=f"rate_{i}")
+        with cols[3]:
+            if st.button("❌", key=f"delete_{i}"):
+                continue  # Skip adding this item to updated list
 
-    if st.session_state.item_count < 11:
-        st.button("➕ Add More Items", on_click=add_item)
+        total = qty * rate
+        total_pm_value += total
+        updated_items.append({"name": name, "qty": qty, "rate": rate})
+
+    st.session_state.pm_items = updated_items
+
+    if len(st.session_state.pm_items) < 11:
+        if st.button("➕ Add New Item"):
+            st.session_state.pm_items.append({"name": "", "qty": 0.0, "rate": 0.0})
 
     st.header("🛋️ Other Fixed Assets")
     furniture_value = st.number_input("Furniture & Fixture Value (₹)", min_value=0.0, step=100.0)
@@ -84,7 +80,6 @@ def show_report_form(user_role="guest"):
             wb = load_workbook(template_path)
             sheet = wb["Basic Details"]
 
-            # Basic Info
             sheet["C3"] = firm_name
             sheet["C4"] = firm_address
             sheet["C5"] = nature_of_business
@@ -92,6 +87,7 @@ def show_report_form(user_role="guest"):
             sheet["C7"] = proprietor_address
             sheet["G3"] = gender
             sheet["G4"] = location
+            sheet["G5"] = category
             sheet["C8"] = building_status
             sheet["C9"] = area_sqft
             sheet["C10"] = rent_rs
@@ -100,22 +96,19 @@ def show_report_form(user_role="guest"):
             sheet["C13"] = term_loan
             sheet["C14"] = cc_rate
 
-            # P&M entries
-            for idx, item in enumerate(item_data):
+            # P&M items
+            for idx, item in enumerate(st.session_state.pm_items):
                 row = 19 + idx
-                sheet[f"B{row}"] = item["serial"]
+                sheet[f"B{row}"] = idx + 1
                 sheet[f"C{row}"] = item["name"]
                 sheet[f"D{row}"] = item["qty"]
                 sheet[f"E{row}"] = item["rate"]
 
-            # Other assets
             sheet["F37"] = furniture_value
             sheet["F40"] = electrical_value
 
-            # Hide sheet
             sheet.sheet_state = "hidden"
 
-            # Save to temp
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"/tmp/report_{entered_by.replace(' ', '_')}_{now}.xlsx"
             wb.save(filename)
@@ -132,7 +125,7 @@ def show_report_form(user_role="guest"):
 
             st.success("✅ Report generated and emailed successfully.")
 
-            # Log submission
+            # Log
             new_row = pd.DataFrame([{
                 "submitted_by": entered_by,
                 "email": st.session_state.email if user_role != "guest" else "guest",
