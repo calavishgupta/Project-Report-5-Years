@@ -14,10 +14,12 @@ nature_of_business = st.text_input("Nature of Business").upper()
 proprietor_name = st.text_input("Proprietor Name").upper()
 proprietor_address = st.text_input("Address of Proprietor").upper()
 building_status = st.selectbox("Building Rented/Owned", ["RENTED", "OWNED"])
-area_sqft = st.text_input("Area in sq. ft").upper()
+
+# ✅ Allow only numerical input
+area_sqft = st.number_input("Area in sq. ft", min_value=0.0, step=1.0, format="%.2f")
 rent_rs = ""
 if building_status == "RENTED":
-    rent_rs = st.text_input("Rent in Rs.").upper()
+    rent_rs = st.number_input("Rent in Rs.", min_value=0.0, step=100.0, format="%.2f")
 
 # --- FINANCIAL PARAMETERS ---
 st.header("Step 2: Financial Parameters")
@@ -35,6 +37,7 @@ cci_decimal = cc_interest / 100
 # --- P&M ENTRY SECTION ---
 st.header("Step 3: Plant & Machinery")
 
+# Session state to handle dynamic inputs
 if 'item_count' not in st.session_state:
     st.session_state.item_count = 1
 
