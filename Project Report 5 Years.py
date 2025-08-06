@@ -1,20 +1,29 @@
 import streamlit as st
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
-from io import BytesIO
 import tempfile
 import yagmail
 
-# Streamlit Page Settings
+def copy_row_formatting(ws: Worksheet, source_row: int, target_row: int):
+    for col in range(1, ws.max_column + 1):
+        cell_src = ws.cell(row=source_row, column=col)
+        cell_tgt = ws.cell(row=target_row, column=col)
+        if cell_src.has_style:
+            cell_tgt._style = cell_src._style
+        cell_tgt.font = cell_src.font
+        cell_tgt.border = cell_src.border
+        cell_tgt.fill = cell_src.fill
+        cell_tgt.number_format = cell_src.number_format
+        cell_tgt.alignment = cell_src.alignment
+
 st.set_page_config(page_title="Project Report Generator", layout="wide")
 st.title("📊 Automated Project Report Generator")
 
-# --- SESSION STATE for Plant & Machinery Items ---
+# Session for storing PM items
 if "pm_items" not in st.session_state:
     st.session_state.pm_items = []
 
-# --- INPUT SECTION 1: Basic Details ---
+# Step 1: Basic Details
 st.header("Step 1: Basic Details")
 firm_name = st.text_input("Firm Name").upper()
 firm_address = st.text_input("Firm Address").upper()
@@ -23,26 +32,23 @@ proprietor_name = st.text_input("Proprietor Name").upper()
 proprietor_address = st.text_input("Address of Proprietor").upper()
 building_status = st.selectbox("Building Rented/Owned", ["RENTED", "OWNED"])
 area_sqft = st.text_input("Area in sq. ft").upper()
-rent_rs = ""
-if building_status == "RENTED":
-    rent_rs = st.text_input("Rent in Rs.").upper()
+rent_rs = st.text_input("Rent in Rs.") if building_status == "RENTED" else ""
 
-# --- INPUT SECTION 2: Financial Parameters ---
+# Step 2: Financial Parameters
 st.header("Step 2: Financial Parameters")
-margin_percent = st.number_input("Margin Percentage", min_value=0.0, max_value=100.0, step=0.1)
-subsidy_percent = st.number_input("Subsidy Percentage", min_value=0.0, max_value=100.0, step=0.1)
-term_loan_interest = st.number_input("Term Loan Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
-cc_interest = st.number_input("CC Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
+margin_percent = st.number_input("Margin Percentage", min_value=0.0, max_value=100.0)
+subsidy_percent = st.number_input("Subsidy Percentage", min_value=0.0, max_value=100.0)
+term_loan_interest = st.number_input("Term Loan Interest Rate", min_value=0.0, max_value=100.0)
+cc_interest = st.number_input("CC Interest Rate", min_value=0.0, max_value=100.0)
 
-# Convert to decimal
+# Decimal conversions
 margin_decimal = margin_percent / 100
 subsidy_decimal = subsidy_percent / 100
 tli_decimal = term_loan_interest / 100
 cci_decimal = cc_interest / 100
 
-# --- INPUT SECTION 3: Plant & Machinery Entry ---
+# Step 3: Add P&M Items
 st.header("Step 3: Plant & Machinery")
-
 with st.form("pm_form", clear_on_submit=True):
     col1, col2, col3 = st.columns([4, 2, 2])
     with col1:
@@ -51,7 +57,6 @@ with st.form("pm_form", clear_on_submit=True):
         pm_qty = st.number_input("Quantity", min_value=0.0)
     with col3:
         pm_rate = st.number_input("Rate", min_value=0.0)
-    
     submitted = st.form_submit_button("Add Item")
     if submitted and pm_name:
         st.session_state.pm_items.append({
@@ -61,9 +66,8 @@ with st.form("pm_form", clear_on_submit=True):
             "total": pm_qty * pm_rate
         })
 
-# Display added items
 if st.session_state.pm_items:
-    st.subheader("Plant & Machinery Items Added")
+    st.subheader("Items Added")
     st.table([
         {
             "S.No": i + 1,
@@ -75,27 +79,27 @@ if st.session_state.pm_items:
         for i, item in enumerate(st.session_state.pm_items)
     ])
 
-# --- INPUT SECTION 4: Furniture & Electrical ---
+# Step 4: Furniture and Electrical
 st.header("Step 4: Other Fixed Assets")
-furniture_value = st.number_input("Value of Furniture and Fixture", min_value=0.0)
-electrical_value = st.number_input("Value of Electrical Equipments & Fittings", min_value=0.0)
+furniture_value = st.number_input("Furniture & Fixture Value", min_value=0.0)
+electrical_value = st.number_input("Electrical Equipments & Fittings Value", min_value=0.0)
 
-# --- TOTAL SUMMARY ---
+# Summary
 pm_total = sum(item["total"] for item in st.session_state.pm_items)
 grand_total = pm_total + furniture_value + electrical_value
 
 st.markdown("### 💰 Summary")
-st.write(f"**Total Plant & Machinery**: ₹ {pm_total:,.2f}")
-st.write(f"**Furniture & Fixture**: ₹ {furniture_value:,.2f}")
-st.write(f"**Electrical Equipments**: ₹ {electrical_value:,.2f}")
-st.success(f"**Grand Total**: ₹ {grand_total:,.2f}")
+st.write(f"**Total Plant & Machinery:** ₹{pm_total:,.2f}")
+st.write(f"**Furniture & Fixtures:** ₹{furniture_value:,.2f}")
+st.write(f"**Electrical Equipments:** ₹{electrical_value:,.2f}")
+st.success(f"**Grand Total:** ₹{grand_total:,.2f}")
 
-# --- GENERATE PROJECT REPORT ---
+# Generate and Email
 if st.button("Generate Project Report"):
     template_path = "Project Report Format.xlsx"
     wb = load_workbook(template_path)
 
-    # Fill Basic Details Sheet
+    # Fill Basic Details
     if "Basic Details" in wb.sheetnames:
         sheet = wb["Basic Details"]
         sheet["C3"] = firm_name
@@ -103,51 +107,60 @@ if st.button("Generate Project Report"):
         sheet["C5"] = nature_of_business
         sheet["C6"] = proprietor_name
         sheet["C7"] = proprietor_address
-        sheet["C8"] = building_status.capitalize()
+        sheet["C8"] = building_status
         sheet["C9"] = area_sqft
-        sheet["C10"] = rent_rs if building_status == "RENTED" else ""
+        sheet["C10"] = rent_rs
         sheet["C11"] = margin_decimal
         sheet["C12"] = subsidy_decimal
         sheet["C13"] = tli_decimal
         sheet["C14"] = cci_decimal
 
-    # Fill Plant & Machinery Sheet
+    # Fill PM-MFA sheet
     if "PM-MFA" in wb.sheetnames:
-        sheet: Worksheet = wb["PM-MFA"]
+        sheet = wb["PM-MFA"]
         base_row = 10
         default_rows = 1
-        items = st.session_state.pm_items
-        n = len(items)
+        n = len(st.session_state.pm_items)
 
-        # Insert rows if more than 1 item
+        # Save merged ranges
+        merged_ranges = list(sheet.merged_cells.ranges)
+
+        # Insert rows if needed
         if n > default_rows:
             sheet.insert_rows(base_row + 1, n - default_rows)
 
-        # Write each P&M item
-        for i, item in enumerate(items):
+        # Reapply merged cells
+        for merge in merged_ranges:
+            sheet.merge_cells(str(merge))
+
+        # Write P&M items and copy format
+        for i, item in enumerate(st.session_state.pm_items):
             row = base_row + i
+            copy_row_formatting(sheet, base_row, row)
             sheet[f"A{row}"] = i + 1
             sheet[f"B{row}"] = item["name"]
             sheet[f"C{row}"] = item["qty"]
             sheet[f"D{row}"] = item["rate"]
             sheet[f"E{row}"] = f"=C{row}*D{row}"
 
-        # Write Total Formula in E13
-        total_formula_row = 13
-        sheet[f"E{total_formula_row}"] = f"=SUM(E{base_row}:E{base_row + n - 1})"
+        # Total formula after P&M
+        total_row = base_row + n + 3
+        sheet[f"C{total_row}"] = f"=SUM(C{base_row}:C{base_row + n - 1})"
 
-        # Adjust Furniture & Electrical values
-        furniture_row = 27 + (n - default_rows)
-        electrical_row = 30 + (n - default_rows)
-        sheet[f"E{furniture_row}"] = furniture_value
-        sheet[f"E{electrical_row}"] = electrical_value
+        # Insert Furniture & Electrical values
+        sheet[f"E{27 + (n - 1)}"] = furniture_value
+        sheet[f"E{30 + (n - 1)}"] = electrical_value
 
-    # Save workbook to temp file
+        # Update formula in C34 if fixed to old row
+        cell_c34 = sheet["C34"]
+        if isinstance(cell_c34.value, str) and "=C33" in cell_c34.value:
+            cell_c34.value = f"=C{total_row}"
+
+    # Save and send
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         wb.save(tmp.name)
         tmp_path = tmp.name
 
-    # Email
     try:
         st.info("📧 Sending report to Lavish Gupta...")
         yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="geli tejz dxiq vtyo")
