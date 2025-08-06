@@ -8,40 +8,43 @@ from guest_form import guest_form
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- Login Not Done ---
+if "login_success" not in st.session_state:
+    st.session_state.login_success = False
+
+# --- Redirect on Login Success ---
+if st.session_state.login_success:
+    st.session_state.login_success = False  # reset flag
+    st.rerun()  # this is safe here as it's outside widget callbacks
+
+# --- Show Login Interface ---
 if not st.session_state.logged_in:
     st.sidebar.title("🔐 Login Panel")
 
-    # Guest Option
     if st.sidebar.button("🚪 Continue as Guest"):
         st.session_state.logged_in = True
         st.session_state.role = "guest"
         st.session_state.username = "Guest"
         st.session_state.email = None
-        st.experimental_rerun()
+        st.session_state.login_success = True  # trigger rerun
+        st.stop()
 
     login()
+    st.stop()
 
-    # Trigger rerun AFTER login success
-    if st.session_state.get("login_success"):
-        st.session_state.pop("login_success")
-        st.experimental_rerun()
+# --- Post Login Interface ---
+st.sidebar.title("🔐 Access")
+st.sidebar.markdown(f"👋 Welcome, **{st.session_state.username}** ({st.session_state.role})")
 
-# --- Post Login View ---
+if st.sidebar.button("Logout"):
+    st.session_state.clear()
+    st.rerun()
+
+# --- Role-based Routing ---
+if st.session_state.role == "admin":
+    admin_dashboard()
+elif st.session_state.role == "user":
+    user_dashboard()
+elif st.session_state.role == "guest":
+    guest_form()
 else:
-    st.sidebar.title("🔐 Access")
-    st.sidebar.markdown(f"👋 Welcome, **{st.session_state.username}** ({st.session_state.role})")
-
-    if st.sidebar.button("Logout"):
-        st.session_state.clear()
-        st.experimental_rerun()
-
-    # Role-based routing
-    if st.session_state.role == "admin":
-        admin_dashboard()
-    elif st.session_state.role == "user":
-        user_dashboard()
-    elif st.session_state.role == "guest":
-        guest_form()
-    else:
-        st.error("❌ Unknown role detected. Contact Admin.")
+    st.error("❌ Unknown role detected. Contact Admin.")
