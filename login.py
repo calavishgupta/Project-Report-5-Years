@@ -10,7 +10,6 @@ def login():
         st.error("❌ users.csv file not found.")
         return
 
-    # Normalize usernames to lowercase
     users_df["username"] = users_df["username"].str.lower()
 
     username = st.text_input("Username").strip().lower()
@@ -25,14 +24,13 @@ def login():
             role = user_row.iloc[0]["role"].lower()
             email = user_row.iloc[0]["email"]
 
-            # 🔐 Convert input password to string to match
             if password.strip() == stored_password:
                 st.success(f"✅ Logged in as {username} ({role})")
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.session_state.role = role
                 st.session_state.email = email
-                st.session_state.login_success = True  # flag for rerun
+                st.session_state.login_success = True  # tell app.py to rerun
             else:
                 st.error("❌ Incorrect password")
         else:
