@@ -10,6 +10,7 @@ def login():
         st.error("❌ users.csv file not found.")
         return
 
+    # Normalize usernames to lowercase
     users_df["username"] = users_df["username"].str.lower()
 
     username = st.text_input("Username").strip().lower()
@@ -20,13 +21,13 @@ def login():
         user_row = users_df[users_df["username"] == username]
 
         if not user_row.empty:
-            stored_password = user_row.iloc[0]["password"]
+            stored_password = str(user_row.iloc[0]["password"]).strip()
             role = user_row.iloc[0]["role"].lower()
             email = user_row.iloc[0]["email"]
 
-            if password == stored_password:
+            # 🔐 Convert input password to string to match
+            if password.strip() == stored_password:
                 st.success(f"✅ Logged in as {username} ({role})")
-                # Set session flags only (no rerun here)
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.session_state.role = role
