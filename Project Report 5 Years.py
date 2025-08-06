@@ -3,23 +3,27 @@ from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 import tempfile
 import yagmail
+from copy import copy
 
+# Function to copy formatting from one row to another
 def copy_row_formatting(ws: Worksheet, source_row: int, target_row: int):
     for col in range(1, ws.max_column + 1):
         cell_src = ws.cell(row=source_row, column=col)
         cell_tgt = ws.cell(row=target_row, column=col)
-        if cell_src.has_style:
-            cell_tgt._style = cell_src._style
-        cell_tgt.font = cell_src.font
-        cell_tgt.border = cell_src.border
-        cell_tgt.fill = cell_src.fill
-        cell_tgt.number_format = cell_src.number_format
-        cell_tgt.alignment = cell_src.alignment
 
+        if cell_src.has_style:
+            cell_tgt.font = copy(cell_src.font)
+            cell_tgt.border = copy(cell_src.border)
+            cell_tgt.fill = copy(cell_src.fill)
+            cell_tgt.number_format = copy(cell_src.number_format)
+            cell_tgt.alignment = copy(cell_src.alignment)
+            cell_tgt.protection = copy(cell_src.protection)
+
+# Streamlit page settings
 st.set_page_config(page_title="Project Report Generator", layout="wide")
 st.title("📊 Automated Project Report Generator")
 
-# Session for storing PM items
+# Store PM items in session
 if "pm_items" not in st.session_state:
     st.session_state.pm_items = []
 
@@ -47,7 +51,7 @@ subsidy_decimal = subsidy_percent / 100
 tli_decimal = term_loan_interest / 100
 cci_decimal = cc_interest / 100
 
-# Step 3: Add P&M Items
+# Step 3: Add Plant & Machinery Items
 st.header("Step 3: Plant & Machinery")
 with st.form("pm_form", clear_on_submit=True):
     col1, col2, col3 = st.columns([4, 2, 2])
@@ -94,12 +98,12 @@ st.write(f"**Furniture & Fixtures:** ₹{furniture_value:,.2f}")
 st.write(f"**Electrical Equipments:** ₹{electrical_value:,.2f}")
 st.success(f"**Grand Total:** ₹{grand_total:,.2f}")
 
-# Generate and Email
+# Generate and Email Report
 if st.button("Generate Project Report"):
     template_path = "Project Report Format.xlsx"
     wb = load_workbook(template_path)
 
-    # Fill Basic Details
+    # Basic Details
     if "Basic Details" in wb.sheetnames:
         sheet = wb["Basic Details"]
         sheet["C3"] = firm_name
@@ -115,25 +119,21 @@ if st.button("Generate Project Report"):
         sheet["C13"] = tli_decimal
         sheet["C14"] = cci_decimal
 
-    # Fill PM-MFA sheet
+    # PM-MFA Sheet
     if "PM-MFA" in wb.sheetnames:
         sheet = wb["PM-MFA"]
         base_row = 10
         default_rows = 1
         n = len(st.session_state.pm_items)
 
-        # Save merged ranges
+        # Save and restore merged cell ranges
         merged_ranges = list(sheet.merged_cells.ranges)
-
-        # Insert rows if needed
         if n > default_rows:
             sheet.insert_rows(base_row + 1, n - default_rows)
-
-        # Reapply merged cells
         for merge in merged_ranges:
             sheet.merge_cells(str(merge))
 
-        # Write P&M items and copy format
+        # Write P&M Items
         for i, item in enumerate(st.session_state.pm_items):
             row = base_row + i
             copy_row_formatting(sheet, base_row, row)
@@ -143,20 +143,20 @@ if st.button("Generate Project Report"):
             sheet[f"D{row}"] = item["rate"]
             sheet[f"E{row}"] = f"=C{row}*D{row}"
 
-        # Total formula after P&M
+        # Add Total Formula
         total_row = base_row + n + 3
         sheet[f"C{total_row}"] = f"=SUM(C{base_row}:C{base_row + n - 1})"
 
-        # Insert Furniture & Electrical values
+        # Insert Furniture and Electrical
         sheet[f"E{27 + (n - 1)}"] = furniture_value
         sheet[f"E{30 + (n - 1)}"] = electrical_value
 
-        # Update formula in C34 if fixed to old row
+        # Fix downstream reference (example: C34 originally refers to C33)
         cell_c34 = sheet["C34"]
         if isinstance(cell_c34.value, str) and "=C33" in cell_c34.value:
             cell_c34.value = f"=C{total_row}"
 
-    # Save and send
+    # Save and email
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         wb.save(tmp.name)
         tmp_path = tmp.name
