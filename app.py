@@ -1,5 +1,3 @@
-st.session_state.clear()
-
 import streamlit as st
 from login import login
 from admin_dashboard import admin_dashboard
@@ -28,11 +26,10 @@ if not st.session_state.logged_in:
     login()
 else:
     st.sidebar.markdown(f"👋 Welcome, **{st.session_state.username}** ({st.session_state.role})")
-    
+
     # Logout
     if st.sidebar.button("Logout"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        st.session_state.clear()
         st.experimental_rerun()
 
     # --- Role-based Routing ---
