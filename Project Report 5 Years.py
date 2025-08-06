@@ -1,13 +1,20 @@
 import streamlit as st
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 from io import BytesIO
-import yagmail
 import tempfile
+import yagmail
 
+# Streamlit Page Settings
 st.set_page_config(page_title="Project Report Generator", layout="wide")
 st.title("📊 Automated Project Report Generator")
 
-# --- INPUT SECTION ---
+# --- SESSION STATE for Plant & Machinery Items ---
+if "pm_items" not in st.session_state:
+    st.session_state.pm_items = []
+
+# --- INPUT SECTION 1: Basic Details ---
 st.header("Step 1: Basic Details")
 firm_name = st.text_input("Firm Name").upper()
 firm_address = st.text_input("Firm Address").upper()
@@ -20,24 +27,75 @@ rent_rs = ""
 if building_status == "RENTED":
     rent_rs = st.text_input("Rent in Rs.").upper()
 
-# --- ADDITIONAL INPUTS ---
+# --- INPUT SECTION 2: Financial Parameters ---
 st.header("Step 2: Financial Parameters")
 margin_percent = st.number_input("Margin Percentage", min_value=0.0, max_value=100.0, step=0.1)
 subsidy_percent = st.number_input("Subsidy Percentage", min_value=0.0, max_value=100.0, step=0.1)
 term_loan_interest = st.number_input("Term Loan Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
 cc_interest = st.number_input("CC Interest Rate", min_value=0.0, max_value=100.0, step=0.1)
 
-# Convert percentages to decimal fractions for Excel (e.g., 5% → 0.05)
+# Convert to decimal
 margin_decimal = margin_percent / 100
 subsidy_decimal = subsidy_percent / 100
 tli_decimal = term_loan_interest / 100
 cci_decimal = cc_interest / 100
 
-# --- BUTTON TO GENERATE REPORT ---
+# --- INPUT SECTION 3: Plant & Machinery Entry ---
+st.header("Step 3: Plant & Machinery")
+
+with st.form("pm_form", clear_on_submit=True):
+    col1, col2, col3 = st.columns([4, 2, 2])
+    with col1:
+        pm_name = st.text_input("Item Name")
+    with col2:
+        pm_qty = st.number_input("Quantity", min_value=0.0)
+    with col3:
+        pm_rate = st.number_input("Rate", min_value=0.0)
+    
+    submitted = st.form_submit_button("Add Item")
+    if submitted and pm_name:
+        st.session_state.pm_items.append({
+            "name": pm_name,
+            "qty": pm_qty,
+            "rate": pm_rate,
+            "total": pm_qty * pm_rate
+        })
+
+# Display added items
+if st.session_state.pm_items:
+    st.subheader("Plant & Machinery Items Added")
+    st.table([
+        {
+            "S.No": i + 1,
+            "Item Name": item["name"],
+            "Quantity": item["qty"],
+            "Rate": item["rate"],
+            "Total": item["total"]
+        }
+        for i, item in enumerate(st.session_state.pm_items)
+    ])
+
+# --- INPUT SECTION 4: Furniture & Electrical ---
+st.header("Step 4: Other Fixed Assets")
+furniture_value = st.number_input("Value of Furniture and Fixture", min_value=0.0)
+electrical_value = st.number_input("Value of Electrical Equipments & Fittings", min_value=0.0)
+
+# --- TOTAL SUMMARY ---
+pm_total = sum(item["total"] for item in st.session_state.pm_items)
+grand_total = pm_total + furniture_value + electrical_value
+
+st.markdown("### 💰 Summary")
+st.write(f"**Total Plant & Machinery**: ₹ {pm_total:,.2f}")
+st.write(f"**Furniture & Fixture**: ₹ {furniture_value:,.2f}")
+st.write(f"**Electrical Equipments**: ₹ {electrical_value:,.2f}")
+st.success(f"**Grand Total**: ₹ {grand_total:,.2f}")
+
+# --- GENERATE PROJECT REPORT ---
 if st.button("Generate Project Report"):
-    template_path = "Project Report Format.xlsx"  # Relative path for GitHub/Streamlit Cloud
+    template_path = "Project Report Format.xlsx"
     wb = load_workbook(template_path)
 
+    # Fill Basic Details Sheet
     if "Basic Details" in wb.sheetnames:
         sheet = wb["Basic Details"]
         sheet["C3"] = firm_name
@@ -53,12 +111,43 @@ if st.button("Generate Project Report"):
         sheet["C13"] = tli_decimal
         sheet["C14"] = cci_decimal
 
-    # Save workbook to temporary file
+    # Fill Plant & Machinery Sheet
+    if "PM-MFA" in wb.sheetnames:
+        sheet: Worksheet = wb["PM-MFA"]
+        base_row = 10
+        default_rows = 1
+        items = st.session_state.pm_items
+        n = len(items)
+
+        # Insert rows if more than 1 item
+        if n > default_rows:
+            sheet.insert_rows(base_row + 1, n - default_rows)
+
+        # Write each P&M item
+        for i, item in enumerate(items):
+            row = base_row + i
+            sheet[f"A{row}"] = i + 1
+            sheet[f"B{row}"] = item["name"]
+            sheet[f"C{row}"] = item["qty"]
+            sheet[f"D{row}"] = item["rate"]
+            sheet[f"E{row}"] = f"=C{row}*D{row}"
+
+        # Write Total Formula in E13
+        total_formula_row = 13
+        sheet[f"E{total_formula_row}"] = f"=SUM(E{base_row}:E{base_row + n - 1})"
+
+        # Adjust Furniture & Electrical values
+        furniture_row = 27 + (n - default_rows)
+        electrical_row = 30 + (n - default_rows)
+        sheet[f"E{furniture_row}"] = furniture_value
+        sheet[f"E{electrical_row}"] = electrical_value
+
+    # Save workbook to temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         wb.save(tmp.name)
         tmp_path = tmp.name
 
-    # Send email with attachment
+    # Email
     try:
         st.info("📧 Sending report to Lavish Gupta...")
         yag = yagmail.SMTP(user="calavishgupta25@gmail.com", password="geli tejz dxiq vtyo")
