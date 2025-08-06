@@ -15,7 +15,7 @@ proprietor_name = st.text_input("Proprietor Name").upper()
 proprietor_address = st.text_input("Address of Proprietor").upper()
 building_status = st.selectbox("Building Rented/Owned", ["RENTED", "OWNED"])
 
-# ✅ Allow only numerical input
+# ✅ Numerical input only
 area_sqft = st.number_input("Area in sq. ft", min_value=0.0, step=1.0, format="%.2f")
 rent_rs = ""
 if building_status == "RENTED":
@@ -37,7 +37,6 @@ cci_decimal = cc_interest / 100
 # --- P&M ENTRY SECTION ---
 st.header("Step 3: Plant & Machinery")
 
-# Session state to handle dynamic inputs
 if 'item_count' not in st.session_state:
     st.session_state.item_count = 1
 
@@ -57,7 +56,7 @@ for i in range(st.session_state.item_count):
         qty = st.number_input(f"Qty {i+1}", min_value=0.0, step=1.0, key=f"qty_{i}")
     with cols[2]:
         rate = st.number_input(f"Rate {i+1}", min_value=0.0, step=0.1, key=f"rate_{i}")
-    
+
     if item_name:
         total = qty * rate
         total_pm_value += total
@@ -83,6 +82,12 @@ st.write(f"**Total Plant & Machinery Value:** ₹{total_pm_value:,.2f}")
 st.write(f"**Total Furniture & Fixture Value:** ₹{furniture_value:,.2f}")
 st.write(f"**Total Electrical Equipments Value:** ₹{electrical_value:,.2f}")
 st.subheader(f"**➡️ Grand Total: ₹{grand_total:,.2f}**")
+
+# --- DEBUG: Print input info ---
+with st.expander("🛠️ Debug Info"):
+    st.write("Firm Name:", firm_name)
+    st.write("Items Entered:", item_data)
+    st.write("Total P&M Value:", total_pm_value)
 
 # --- GENERATE & EMAIL REPORT ---
 if st.button("📤 Generate & Email Project Report"):
@@ -118,10 +123,10 @@ if st.button("📤 Generate & Email Project Report"):
             sheet["F37"] = furniture_value
             sheet["F40"] = electrical_value
 
-            # 🔒 Hide the sheet before saving
+            # 🔒 Hide sheet
             sheet.sheet_state = "hidden"
 
-        # Save file temporarily
+        # Save to temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             wb.save(tmp.name)
             tmp_path = tmp.name
@@ -139,3 +144,4 @@ if st.button("📤 Generate & Email Project Report"):
 
     except Exception as e:
         st.error(f"❌ Failed to send email: {e}")
+        st.exception(e)
