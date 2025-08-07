@@ -1,0 +1,4 @@
+Scheme,Description,Eligibility,Calculation
+Pension Scheme,Provides pension to senior citizens,"Age >= 60",0.5 * income
+Health Insurance,Covers medical expenses for families,"Age > 0",100000 if age < 60 else 150000
+Education Grant,Financial support for students,"Age < 25 and Income < 300000",50000 if age < 25 and income < 300000 else 0
