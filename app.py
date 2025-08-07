@@ -8,27 +8,12 @@ from guest_form import guest_form
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-if "login_success" not in st.session_state:
-    st.session_state.login_success = False
-
-# --- Redirect on Login Success ---
-if st.session_state.login_success:
-    st.session_state.login_success = False  # reset flag
-    st.rerun()  # this is safe here as it's outside widget callbacks
-
 # --- Show Login Interface ---
 if not st.session_state.logged_in:
-    st.sidebar.title("🔐 Login Panel")
+    login_complete = login()  # Returns True if login or guest login is successful
 
-    if st.sidebar.button("🚪 Continue as Guest"):
-        st.session_state.logged_in = True
-        st.session_state.role = "guest"
-        st.session_state.username = "Guest"
-        st.session_state.email = None
-        st.session_state.login_success = True  # trigger rerun
-        st.stop()
-
-    login()
+    if login_complete:
+        st.rerun()
     st.stop()
 
 # --- Post Login Interface ---
