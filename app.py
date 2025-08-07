@@ -1,21 +1,51 @@
 import streamlit as st
-from scheme_data import schemes
+from login import login
+from admin_dashboard import admin_dashboard
+from user_dashboard import user_dashboard
+from guest_form import guest_form
 
-st.set_page_config(page_title="Schemes Dashboard", layout="wide")
-st.title("Schemes Dashboard")
+# --- Session Initialization ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-# Sidebar: List of main scheme names
-st.sidebar.header("Scheme Groups")
-main_scheme_names = list(schemes.keys())
-selected_main_scheme = st.sidebar.selectbox("Select a Scheme Group", main_scheme_names)
+if "login_success" not in st.session_state:
+    st.session_state.login_success = False
 
-# Main dashboard area: show grouped schemes and details
-st.header(selected_main_scheme)
-variants = schemes[selected_main_scheme]
+# --- Redirect on Login Success ---
+if st.session_state.login_success:
+    st.session_state.login_success = False  # reset flag
+    st.rerun()  # this is safe here as it's outside widget callbacks
 
-for i, variant in enumerate(variants, 1):
-    with st.expander(f"Variant {i}: {variant.get('Eligible Category', '')}"):
-        cols = st.columns(2)
-        for idx, (key, value) in enumerate(variant.items()):
-            with cols[idx % 2]:
-                st.markdown(f"**{key}:** {value if value is not None else '-'}")
+# --- Show Login Interface ---
+if not st.session_state.logged_in:
+    st.sidebar.title("🔐 Login Panel")
+
+    if st.sidebar.button("🚪 Continue as Guest"):
+        st.session_state.logged_in = True
+        st.session_state.role = "guest"
+        st.session_state.username = "Guest"
+        st.session_state.email = None
+        st.session_state.login_success = True  # trigger rerun
+        st.stop()
+
+    login()
+
+    st.stop()
+
+# --- Post Login Interface ---
+st.sidebar.title("🔐 Access")
+st.sidebar.markdown(f"👋 Welcome, **{st.session_state.username}** ({st.session_state.role})")
+
+if st.sidebar.button("Logout"):
+    st.session_state.clear()
+    st.rerun()
+
+# --- Role-based Routing ---
+if st.session_state.role == "admin":
+    admin_dashboard()
+elif st.session_state.role == "user":
+    user_dashboard()
+elif st.session_state.role == "guest":
+    guest_form()
+else:
+    st.error("❌ Unknown role detected. Contact Admin.")
