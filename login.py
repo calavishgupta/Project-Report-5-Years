@@ -3,22 +3,24 @@ import pandas as pd
 
 def login():
     st.title("🔐 Login to Project Report System")
+    login_success = False
 
+    # Load users
     try:
         users_df = pd.read_csv("users.csv")
     except FileNotFoundError:
         st.error("❌ users.csv file not found.")
-        return
+        return False
 
     users_df["username"] = users_df["username"].str.lower()
 
     username = st.text_input("Username").strip().lower()
     password = st.text_input("Password", type="password")
     login_btn = st.button("Login")
+    guest_btn = st.button("Continue as Guest")
 
-    if login_btn:
+    if login_btn and username and password:
         user_row = users_df[users_df["username"] == username]
-
         if not user_row.empty:
             stored_password = str(user_row.iloc[0]["password"]).strip()
             role = user_row.iloc[0]["role"].lower()
@@ -30,8 +32,17 @@ def login():
                 st.session_state.username = username
                 st.session_state.role = role
                 st.session_state.email = email
-                st.session_state.login_success = True  # tell app.py to rerun
+                return True
             else:
-                st.error("❌ Incorrect password")
+                st.error("❌ Incorrect password.")
         else:
-            st.error("❌ Username not found")
+            st.error("❌ Username not found.")
+
+    if guest_btn:
+        st.session_state.logged_in = True
+        st.session_state.role = "guest"
+        st.session_state.username = "Guest"
+        st.session_state.email = None
+        return True
+
+    return False
