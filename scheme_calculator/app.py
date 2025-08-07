@@ -1,17 +1,22 @@
-# Scheme Calculator
-
 import streamlit as st
-import pandas as pd
+from schemes_data import get_scheme_data
+from calculator_logic import calculate_benefit
 
-# Load the schemes data
-schemes_data = pd.read_csv('schemes.csv')
+def main():
+    st.title("Scheme Calculator")
+    st.write("Select a scheme and enter your details to calculate your benefit.")
 
-def display_scheme(scheme):
-    st.write(f"## {scheme['Name']}")
-    st.write(scheme['Description'])
+    schemes = get_scheme_data("schemes.csv")
+    selected_scheme = st.selectbox("Choose Scheme", list(schemes.keys()))
 
-st.title('Scheme Calculator')
+    st.write("Fill your details below:")
+    age = st.number_input("Age", min_value=0, max_value=120, value=30)
+    income = st.number_input("Annual Income (₹)", min_value=0, value=500000)
+    additional = st.text_input("Any other info (optional)")
 
-for index, scheme in schemes_data.iterrows():
-    if st.checkbox(scheme['Name']):
-        display_scheme(scheme)
+    if st.button("Calculate"):
+        result = calculate_benefit(selected_scheme, age, income, additional, schemes)
+        st.success(f"Estimated Benefit: {result}")
+
+if __name__ == "__main__":
+    main()
